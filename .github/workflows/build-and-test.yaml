@@ -27,13 +27,13 @@ jobs:
               run: dotnet build SreTakeHome.sln -c Release --no-restore
 
             - name: Unit testing
-              run: dotnet test SreTakeHome.sln -c Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory ./Test-Results 
+              run: dotnet test SreTakeHome.sln -c Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory Test-Results 
 
             - name: Publish results
               if: always()
               uses: actions/upload-artifacts@v4
               with:
                 name: unit-test-results
-                path: ./Test-Results/*.trx
+                path: Test-Results/*.trx
                 if-no-files-found: warn
             
