@@ -31,7 +31,7 @@ jobs:
 
             - name: Publish results
               if: always()
-              uses: actions/upload-artifacts@v4
+              uses: actions/upload-artifact@v4
               with:
                 name: unit-test-results
                 path: Test-Results/*.trx
