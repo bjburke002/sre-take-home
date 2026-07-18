@@ -1,0 +1,12 @@
+config:
+  azure-native:location: eastus2
+  aks:env: test
+  aks:location: eastus2
+  aks:agentpool: testpool1
+  aks:DnsPrefix: coterietest
+  aks:WindowsProfileAdminUsername:
+    secure: AAABAOf2JtLuotXrS5PA/qB0L4sW47CJR42TeKcxKaLb0Jgg0Hgp6+k=
+  aks:WindowsProfileAdminPassword:
+    secure: AAABAAZDUjIk8A6tjCrIxipdViQUY2SZ6nLjucAoW0d7If3buVpqUBrvzUgTwQ==
+  aks:LinuxProfileAdminUsername:
+    secure: AAABAI29I9E9DOa8rho0l55glvPDjHqwZQW4JzYNH0JXbTWs6j71GhA=
