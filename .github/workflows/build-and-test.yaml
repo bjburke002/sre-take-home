@@ -81,5 +81,5 @@ jobs:
           run: |
             docker build \
              -t coterieapi \
-             -f src/CandidateApi/Dockerfile \
+             -f Dockerfile \
              .
