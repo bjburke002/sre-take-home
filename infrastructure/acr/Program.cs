@@ -37,7 +37,7 @@ return await Pulumi.Deployment.RunAsync(() =>
         {
             {"service: coterie-api",$"Env: {env}" },
         },
-        ZoneRedundancy = "Enabled",
+        ZoneRedundancy = "Disabled",
 
     });
     

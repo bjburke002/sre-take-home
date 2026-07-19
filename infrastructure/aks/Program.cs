@@ -1,10 +1,16 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
 using Pulumi;
 
 using Pulumi.AzureNative.Authorization;
 using Pulumi.AzureNative.ContainerService;
 using Pulumi.AzureNative.Resources;
+
+using Pulumi.Kubernetes;
+using Pulumi.Kubernetes.Helm.V3;
+using Pulumi.Kubernetes.Types.Inputs.Helm.V3;
+using Pulumi.Kubernetes.Types.Inputs.Meta.V1;
 
 using AzureNative = Pulumi.AzureNative;
 
@@ -187,4 +193,62 @@ return await Pulumi.Deployment.RunAsync(() =>
             Provider = k8sProvider,
             DependsOn = { managedCluster }
         });
+    /*
+        In this section, we are going to install necessary Helm charts to get the cluster up and running.
+        Cert-Manager for TLS, and Traefik for Ingress.
+    */
+    
+    var certManager = new Release("cert-manager", new ReleaseArgs
+    {
+        Chart = "cert-manager",
+        RepositoryOpts = new RepositoryOptsArgs
+        {
+            Repo = "https://charts.jetstack.io"
+        },
+        Version = "v1.18.2",
+        Namespace = "cert-manager",
+        CreateNamespace = true,
+        Values =
+        {
+            ["crds"] = new  Dictionary<string, object>
+            {
+                ["enabled"] = true,
+            }
+        }
+    },
+    new CustomResourceOptions
+    {
+        Provider = k8sProvider,
+    });
+
+    var traefikIngress = new Release("traefik", new ReleaseArgs
+    {
+        Name = "traefik",
+        Chart = "traefik",
+        Namespace = "traefik",
+        CreateNamespace = true,
+
+        RepositoryOpts = new RepositoryOptsArgs
+        {
+            Repo = "https://traefik.github.io/charts"
+        },
+
+        Values =
+        {
+            ["service"] = new Dictionary<string, object>
+            {
+                ["type"] = "LoadBalancer",
+            },
+
+            ["ingressClass"] = new Dictionary<string, object>
+            {
+                ["enabled"] = true,
+                ["isDefaultClass"] = true,
+            }
+        }
+    },
+    new CustomResourceOptions
+    {
+        Provider = k8sProvider,
+    });
 });
