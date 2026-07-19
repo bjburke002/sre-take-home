@@ -38,7 +38,7 @@ jobs:
                 if-no-files-found: warn
 
     pack-and-publish-nugets:
-      name: Pack Contracts NuGet
+      name: Pack and Publish Contracts NuGet
       runs-on: ubuntu-latest
       needs: build
 
@@ -63,13 +63,21 @@ jobs:
             dotnet pack src/CandidateApi.Contracts/CandidateApi.Contracts.csproj \
               -c Release \
               --no-restore \
-              -o ./artifacts/Packages
-        - name: Push package to GitHub Packages
+              -o ./artifacts
+
+        - name: Upload NuGet Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: coterieapi
+            path: artifacts
+
+        - name: Push to GitHub Packages
           run: |
-            dotnet nuget push "artifacts/*.nupkg" \
+            dotnet nuget push "./artifacts/*.nupkg" \
               --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-              --api-key "${{ secrets.NUGET_TOKEN }}"
-  
+              --api-key "${{ secrets.NUGET_TOKEN}}"
+    
+    
     docker-build:
       name: Build Docker image
       runs-on: ubuntu-latest
