@@ -37,7 +37,7 @@ jobs:
                 path: Test-Results/*.trx
                 if-no-files-found: warn
 
-    pack-nugets:
+    pack-and-publish-nugets:
       name: Pack Contracts NuGet
       runs-on: ubuntu-latest
       needs: build
@@ -64,52 +64,12 @@ jobs:
               -c Release \
               --no-restore \
               -o ./artifacts/Packages
-
-        - name: Upload NuGet Artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: coterieapi
-            path: artifacts
-    
-    publish-contracts:
-      name: Publish Contracts Package to GitHub Packages
-      runs-on: ubuntu-latest
-      needs: pack-nugets
-
-      permissions:
-        packages: write
-        contents: read
-
-      steps:
-         - name: Checkout
-           uses: actions/checkout@v4
-
-         - name: Setup .NET
-           uses: actions/setup-dotnet@v4
-           with:
-            dotnet-version: "10.0.x"
-         
-         - name: Add GitHub Packages source
-           run: |
-            dotnet nuget add source \
-              --username ${{ github.actor }} \
-              --password ${{ secrets.NUGET_TOKEN }} \
-              --name github \
-              "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-         
-         - name: Download NuGet artifact
-           uses: actions/download-artifact@v4
-           with:
-            name: coterieapi
-            path: ./artifacts
-         
-         - name: Push to GitHub Packages
-           run: |
-            dotnet nuget push "./artifacts/*.nupkg" \
-              --source "github" \
-              --api-key "${{ secrets.NUGET_TOKEN}}"
+        - name: Push package to GitHub Packages
+          run: |
+            dotnet nuget push "artifacts/*.nupkg" \
+              --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+              --api-key "${{ secrets.NUGET_TOKEN }}"
   
-
     docker-build:
       name: Build Docker image
       runs-on: ubuntu-latest
