@@ -92,7 +92,7 @@ jobs:
          - name: Add GitHub Packages source
            run: |
             dotnet nuget add source \
-              --username ${{ github.actor }} \\
+              --username ${{ github.actor }} \
               --password ${{ secrets.NUGET_TOKEN }} \
               --name github \
               "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
