@@ -90,6 +90,29 @@ jobs:
         - name: Build Docker Image
           run: |
             docker build \
-             -t coterieapi \
+             -t candidate-api:test \
              -f Dockerfile \
              .
+    
+    helm-lint:
+      name: Validate and Lint Helm Chart
+      runs-on: ubuntu-latest
+      needs: build
+
+      strategy:
+        matrix:
+          environment: [dev, test]
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+        
+        - name: Install Helm
+          uses: azure/setup-helm@v4
+        
+        - name: Lint Helm chart
+          run: |
+            helm lint charts -f charts/environments/values.${{ matrix.environment }}.yaml
+        
+        - name: Render templates
+          run: |
+            helm template candidate-api charts -f charts/environments/values.${{ matrix.environment }}.yaml

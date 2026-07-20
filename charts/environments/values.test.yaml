@@ -1,0 +1,19 @@
+image:
+  tag: test
+
+replicaCount: 1
+
+ingress:
+  host: test-api.burketechnologies.net
+
+autoscaling:
+  enabled: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+  limits:
+    cpu: 250m
+    memory: 256Mi
