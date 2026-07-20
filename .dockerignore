@@ -1,0 +1,13 @@
+# Build artifacts
+**/bin/
+**/obj/
+
+# Visual Studio
+.vs/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile*
