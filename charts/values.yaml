@@ -1,7 +1,7 @@
 replicaCount: 2
 
 image:
-  repository: coteriedevacr.azurecr.io/candidate-api
+  repository: candidateapiacr.azurecr.io/candidate-api
   tag: latest
   pullPolicy: IfNotPresent
 

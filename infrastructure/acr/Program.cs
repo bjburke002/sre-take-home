@@ -6,16 +6,12 @@ using AzureNative = Pulumi.AzureNative;
 
 return await Pulumi.Deployment.RunAsync(() =>
 {
-    // Load configs
-    var config = new Pulumi.Config();
-
-    var env = config.Require("env");
 
     // Create an Azure Resource Group
     var resourceGroup = new AzureNative.Resources.ResourceGroup("resourceGroup", new()
     {
         Location = "eastus2",
-        ResourceGroupName = $"{env}-acr-eastus2-rg",
+        ResourceGroupName = "candidate-api-acr-eastus2-rg",
     });
 
     // Create Azure Container Registry
@@ -30,12 +26,13 @@ return await Pulumi.Deployment.RunAsync(() =>
         Location = "eastus2",
         AdminUserEnabled = false,
         PublicNetworkAccess = "Enabled",
-        RegistryName = $"coterie{env}ACR",
+        RegistryName = $"candidateapiACR",
         DataEndpointEnabled = false,
         AnonymousPullEnabled = false,
         Tags =
         {
-            {"service: coterie-api",$"Env: {env}" },
+            {"service", "candidate-api" },
+            {"environment", "shared"}
         },
         ZoneRedundancy = "Disabled",
 
