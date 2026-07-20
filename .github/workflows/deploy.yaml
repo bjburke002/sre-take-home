@@ -146,10 +146,10 @@ jobs:
         run: |
 
           helm upgrade --install candidate-api \
-            charts/candidate-api \
+            ./charts \
             --namespace dev \
             --create-namespace \
-            -f charts/environments/values.dev.yaml \
+            -f ./charts/environments/values.dev.yaml \
             --set image.tag=${{ needs.build.outputs.image-tag }}
 
 
@@ -168,7 +168,7 @@ jobs:
     name: Deploy TEST AKS
     needs: deploy-dev
     runs-on: ubuntu-latest
-    
+
     steps:
 
       - name: Checkout
@@ -196,10 +196,10 @@ jobs:
         run: |
 
           helm upgrade --install candidate-api \
-            charts/candidate-api \
+            ./charts \
             --namespace test \
             --create-namespace \
-            -f charts/environments/values.test.yaml \
+            -f ./charts/environments/values.test.yaml \
             --set image.tag=${{ needs.build.outputs.image-tag }}
 
 
