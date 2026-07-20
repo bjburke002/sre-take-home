@@ -116,9 +116,7 @@ jobs:
   deploy-dev:
 
     name: Deploy DEV AKS
-
     needs: build
-
     runs-on: ubuntu-latest
 
 
@@ -173,9 +171,7 @@ jobs:
   deploy-test:
 
     name: Deploy TEST AKS
-
     needs: deploy-dev
-
     runs-on: ubuntu-latest
 
 
