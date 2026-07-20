@@ -62,6 +62,7 @@ jobs:
           run: |
             dotnet pack src/CandidateApi.Contracts/CandidateApi.Contracts.csproj \
               -c Release \
+              -p:Version=1.0.0-preview.${{github.run_number}} \
               --no-restore \
               -o ./artifacts
 
