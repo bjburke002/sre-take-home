@@ -343,4 +343,63 @@ return await Pulumi.Deployment.RunAsync(() =>
     {
         Provider = k8sProvider,
     });
+
+    // Installing kube-prometheus-stack 
+    var monitoringStack = new Release("kube-prometheus-stack", new ReleaseArgs
+    {
+        Name = "monitoring",
+        Namespace = "monitoring",
+        CreateNamespace = true,
+
+        Chart = "kube-prometheus-stack",
+
+        RepositoryOpts = new RepositoryOptsArgs
+        {
+            Repo = "https://prometheus-community.github.io/helm-charts"
+        },
+
+        Values =
+        {
+            ["grafana"] = new Dictionary<string, object>
+            {
+                ["enabled"] = true,
+
+                ["service"] = new Dictionary<string, object>
+                {
+                    ["type"] = "ClusterIP"
+                },
+
+                ["ingress"] = new Dictionary<string,object>
+                {
+                    ["enabled"] = true,
+                    ["ingressClassName"] = "traefik",
+                    ["hosts"] = new[]
+                    {
+                        $"grafana.{env}-api.burketechnologies.net"
+                    },
+                    ["annotations"] = new Dictionary<string, object>
+                    {
+                        ["cert-manager.io/cluster-issuer"] = $"letsencrypt-{env}"
+                    },
+
+                    ["tls"] = new []
+                    {
+                        new Dictionary<string, object>
+                        {
+                            ["secretName"] = "grafana-tls",
+                            ["hosts"] = new[]
+                            {
+                                $"grafana.{env}-api.burketechnologies.net"
+                            }
+                        }
+                    }
+                },
+
+            ["prometheus"] = new Dictionary<string, object>
+            {
+                ["enabled"] = true
+            }
+        }
+    }
+});
 });
