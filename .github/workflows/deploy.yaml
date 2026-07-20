@@ -119,11 +119,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
 
-
-    environment:
-      name: dev
-
-
     steps:
 
       - name: Checkout
@@ -173,12 +168,7 @@ jobs:
     name: Deploy TEST AKS
     needs: deploy-dev
     runs-on: ubuntu-latest
-
-
-    environment:
-      name: test
-
-
+    
     steps:
 
       - name: Checkout
