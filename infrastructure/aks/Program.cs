@@ -33,7 +33,7 @@ return await Pulumi.Deployment.RunAsync(() =>
     var userpool = config.Require("userpool");
     var DnsPrefix = config.Require("DnsPrefix");
 
-    var acrStack = new StackReference($"bjburke002/acr/{env}");
+    var acrStack = new StackReference($"bjburke002/acr/dev");
 
     var acrID = acrStack.GetOutput("acrID").Apply(v => v?.ToString() ?? "");
 
@@ -350,7 +350,7 @@ return await Pulumi.Deployment.RunAsync(() =>
     // Installing kube-prometheus-stack 
     var monitoringStack = new Release("kube-prometheus-stack", new ReleaseArgs
     {
-        Name = "monitoring",
+        Name = $"monitoring-{env}",
         Namespace = "monitoring",
         CreateNamespace = true,
 
@@ -404,6 +404,11 @@ return await Pulumi.Deployment.RunAsync(() =>
             }
         }
     }
+    },
+    new CustomResourceOptions
+    {
+        Provider = k8sProvider,
+        DependsOn = {managedCluster}
     });
 
     var serviceMonitorYaml = Output.Format($@"
@@ -413,7 +418,7 @@ return await Pulumi.Deployment.RunAsync(() =>
         name: candidate-api
         namespace: monitoring
         labels:
-            release: monitoring
+            release: monitoring-{env}
     spec:
         namespaceSelector:
             matchNames:
