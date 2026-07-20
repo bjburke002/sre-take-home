@@ -5,83 +5,94 @@ on:
     branches:
       - main
 
-
 permissions:
   contents: read
   id-token: write
   packages: write
 
-
 jobs:
-
   build:
+      name: Build and Test
+      runs-on: ubuntu-latest
 
-    name: Build and Push Image
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
 
+        - name: Setup .NET
+          uses: actions/setup-dotnet@v4
+          with:
+            dotnet-version: '10.0.x'
+            cache: false
+            
+        - name: Install dependencies
+          run: dotnet restore SreTakeHome.sln 
+
+        - name: Build
+          run: dotnet build SreTakeHome.sln -c Release --no-restore
+
+        - name: Unit testing
+          run: dotnet test SreTakeHome.sln -c Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory Test-Results 
+
+        - name: Publish results
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: unit-test-results
+            path: Test-Results/*.trx
+            if-no-files-found: warn
+
+  pack-and-publish-nugets:
+      name: Pack and Publish Contracts NuGet
+      runs-on: ubuntu-latest
+      needs: build
+
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Setup .NET
+          uses: actions/setup-dotnet@v4
+          with:
+            dotnet-version: '10.0.x'
+            cache: false
+        
+        - name: Create artifacts directory
+          run: mkdir -p artifacts
+
+        - name: Restore Contracts
+          run: dotnet restore src/CandidateApi.Contracts/CandidateApi.Contracts.csproj
+
+        - name: Pack NuGet
+          run: |
+            dotnet pack src/CandidateApi.Contracts/CandidateApi.Contracts.csproj \
+              -c Release \
+              -p:Version=1.0.0.${{github.run_number}} \
+              --no-restore \
+              -o ./artifacts
+
+        - name: Upload NuGet Artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: coterieapi
+            path: artifacts
+
+        - name: Push to GitHub Packages
+          run: |
+            dotnet nuget push "./artifacts/*.nupkg" \
+              --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+              --api-key "${{ secrets.NUGET_TOKEN}}"
+
+  build-and-push-docker-image:
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
-
+    needs: build
+    
     outputs:
       image-tag: ${{ steps.image.outputs.tag }}
-
-
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
-
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-
-      - name: Restore
-        run: |
-          dotnet restore SreTakeHome.sln
-
-
-      - name: Build
-        run: |
-          dotnet build SreTakeHome.sln \
-            -c Release \
-            --no-restore
-
-
-      - name: Test
-        run: |
-          dotnet test SreTakeHome.sln \
-            -c Release \
-            --no-build
-
-
-      #
-      # NuGet package
-      #
-
-      - name: Pack Contracts Package
-        run: |
-
-          mkdir artifacts
-
-          dotnet pack \
-            src/CandidateApi.Contracts/CandidateApi.Contracts.csproj \
-            -c Release \
-            -p:Version=1.0.0-preview.${{ github.run_number }} \
-            -o artifacts
-
-
-      - name: Publish NuGet
-        run: |
-
-          dotnet nuget push "./artifacts/*.nupkg" \
-            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-            --api-key "${{ secrets.NUGET_TOKEN }}"
-
-
-      #
-      # Docker -> ACR
-      #
 
       - name: Azure Login
         uses: azure/login@v2
@@ -92,7 +103,6 @@ jobs:
 
       - name: Login to ACR
         run: |
-
           az acr login \
             --name ${{ secrets.ACR_NAME }}
 
@@ -100,7 +110,6 @@ jobs:
       - name: Build and Push Image
         id: image
         run: |
-
           IMAGE=${{ secrets.ACR_NAME }}/candidate-api:${{ github.sha }}
 
           docker build \
@@ -111,19 +120,16 @@ jobs:
 
           echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
 
-
-
   deploy-dev:
 
     name: Deploy DEV AKS
-    needs: build
+    needs: build-and-push-docker-image
     runs-on: ubuntu-latest
 
     steps:
 
       - name: Checkout
         uses: actions/checkout@v4
-
 
       - name: Azure Login
         uses: azure/login@v2
@@ -132,42 +138,48 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID}}
 
-
       - name: Get DEV AKS credentials
         run: |
-
           az aks get-credentials \
             --resource-group ${{ secrets.DEV_RESOURCE_GROUP }} \
             --name ${{ secrets.DEV_CLUSTER }} \
             --overwrite-existing
 
-
       - name: Deploy Helm
         run: |
-
-          helm upgrade --install candidate-api \
+          helm upgrade --install --atomic --wait candidate-api \
             ./charts \
             --namespace dev \
             --create-namespace \
             -f ./charts/environments/values.dev.yaml \
-            --set image.tag=${{ needs.build.outputs.image-tag }}
+            --set image.tag=${{ needs.build-and-push-docker-image.outputs.image-tag }}
 
 
-      - name: Verify Rollout
+      - name: Smoke test
         run: |
+          URL="${{ secrets.DEV_HEALTH_ENDPOINT }}"
 
-          kubectl rollout status \
-            deployment/candidate-api \
-            -n dev \
-            --timeout=180s
+          for i in {1..12}; do
+            response=$(curl -fsS "$URL" || echo '{}')
+            status=$(echo "$response" | jq -r '.status')
 
+            if [ "$status" = "Alive" ]; then
+              echo "Smoke test passed"
+              exit 0
+            fi
 
+            echo "Current status: ${status:-unreachable}"
+            sleep 5
+          done
+
+          echo "Smoke test failed"
+          exit 1
 
   deploy-test:
 
     name: Deploy TEST AKS
     needs:
-      - build 
+      - build-and-push-docker-image
       - deploy-dev
     runs-on: ubuntu-latest
 
@@ -176,7 +188,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-
       - name: Azure Login
         uses: azure/login@v2
         with:
@@ -184,31 +195,31 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID}}
 
-
       - name: Get TEST AKS credentials
         run: |
-
           az aks get-credentials \
             --resource-group ${{ secrets.TEST_RESOURCE_GROUP }} \
             --name ${{ secrets.TEST_CLUSTER }} \
             --overwrite-existing
 
-
       - name: Deploy Helm
         run: |
-
-          helm upgrade --install candidate-api \
+          helm upgrade --install --atomic --wait candidate-api \
             ./charts \
             --namespace test \
             --create-namespace \
             -f ./charts/environments/values.test.yaml \
-            --set image.tag=${{ needs.build.outputs.image-tag }}
-
-
-      - name: Verify Rollout
+            --set image.tag=${{ needs.build-and-push-docker-image.outputs.image-tag }}
+      
+      - name: Smoke test
         run: |
+          URL="${{ secrets.TEST_HEALTH_ENDPOINT }}"
 
-          kubectl rollout status \
-            deployment/candidate-api \
-            -n test \
-            --timeout=180s
+          for i in {1..12}; do
+            response=$(curl -fsS "$URL" || echo '{}')
+            status=$(echo "$response" | jq -r '.status')
+
+            if [ "$status" = "Alive" ]; then
+              echo "Smoke test passed"
+              exit 0
+            fi
