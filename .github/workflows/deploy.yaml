@@ -223,3 +223,10 @@ jobs:
               echo "Smoke test passed"
               exit 0
             fi
+
+            echo "Current status: ${status:-unreachable}"
+            sleep 5
+          done
+
+          echo "Smoke test failed"
+          exit 1
