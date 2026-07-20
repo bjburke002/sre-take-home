@@ -7,8 +7,12 @@ using Pulumi.AzureNative.Authorization;
 using Pulumi.AzureNative.ContainerService;
 using Pulumi.AzureNative.Resources;
 
-using Pulumi.Kubernetes;
+
+using KubeCustomResource = Pulumi.Kubernetes.ApiExtensions.CustomResource;
+using KubeCustomResourceArgs = Pulumi.Kubernetes.ApiExtensions.CustomResourceArgs;
+using Pulumi.Kubernetes.Core.V1;
 using Pulumi.Kubernetes.Helm.V3;
+using Pulumi.Kubernetes.Types.Inputs.Core.V1;
 using Pulumi.Kubernetes.Types.Inputs.Helm.V3;
 using Pulumi.Kubernetes.Types.Inputs.Meta.V1;
 
@@ -32,6 +36,10 @@ return await Pulumi.Deployment.RunAsync(() =>
 
     var subnetStack = new StackReference($"bjburke002/networking/{env}");
     var subnetID = subnetStack.GetOutput("aksSubnetID").Apply(v => v?.ToString() ?? "");
+
+    var awsAccessKeyId = config.RequireSecret("awsAccessKeyId");
+    var awsSecretAccessKey = config.RequireSecret("awsSecretAccessKey");
+    var awsRegion = config.Require("awsRegion");
 
     // Create an Azure Resource Group
     var resourceGroup = new AzureNative.Resources.ResourceGroup("resourceGroup", new()
@@ -114,6 +122,16 @@ return await Pulumi.Deployment.RunAsync(() =>
         Location = location,
         NetworkProfile = new AzureNative.ContainerService.Inputs.ContainerServiceNetworkProfileArgs
         {
+            NetworkPlugin = AzureNative.ContainerService.NetworkPlugin.Azure,
+            NetworkPluginMode = AzureNative.ContainerService.NetworkPluginMode.Overlay,
+            NetworkPolicy = AzureNative.ContainerService.NetworkPolicy.Azure,
+
+            // Pod network
+            PodCidr = "192.168.0.0/16",
+
+            //Service virtual IP range
+            ServiceCidr = "10.20.0.0/16",
+            DnsServiceIP = "10.20.0.10",
             LoadBalancerProfile = new AzureNative.ContainerService.Inputs.ManagedClusterLoadBalancerProfileArgs
             {
                 ManagedOutboundIPs = new AzureNative.ContainerService.Inputs.ManagedClusterLoadBalancerProfileManagedOutboundIPsArgs
@@ -149,7 +167,7 @@ return await Pulumi.Deployment.RunAsync(() =>
     // Grab Kubelet managed identity principal ID to assign acrPull it
     var kubeletPrincipalId = managedCluster.IdentityProfile.Apply(profile => profile?["kubeletidentity"].ObjectId);
 
-    // Give ACR the acrPull role
+    // Give kubelet the acrPull role
     var acrPullRoleAssignment = new RoleAssignment("acrPullRole", new RoleAssignmentArgs
     {
         Scope = acrID,
@@ -221,6 +239,61 @@ return await Pulumi.Deployment.RunAsync(() =>
         Provider = k8sProvider,
     });
 
+    // Secret to hold AWS credentials for external-dns to use to update Route53 records
+    var route53Creds = new Secret("route53Creds", new SecretArgs
+    {
+        Metadata = new ObjectMetaArgs
+        {
+            Name = "route53-creds",
+            Namespace = "cert-manager"
+        },
+
+        StringData =
+        {
+            {
+                "secret-access-key",
+                awsSecretAccessKey
+            }
+        }
+    },
+    new CustomResourceOptions
+    {
+        DependsOn = { certManager },
+    });
+
+    // Create ClusterIssuer for cert-manager/letsencrypt
+
+    var clusterIssuerYaml = Output.Format($@"
+        apiVersion: cert-manager.io/v1
+        kind: ClusterIssuer
+        metadata:
+            name: letsencrypt-{env}
+        spec:
+            acme:
+                email: bjburke002@gmail.com
+                server: https://acme-v02.api.letsencrypt.org/directory
+                privateKeySecretRef:
+                    name: letsencrypt-{env}
+                solvers:
+                - dns01:
+                    route53:
+                        region: {awsRegion}
+                        accessKeyID: {awsAccessKeyId}
+                        secretAccessKeySecretRef:
+                            name: route53-creds
+                            key: secret-access-key
+        ");
+    var clusterIssuer = new Pulumi.Kubernetes.Yaml.ConfigGroup($"letsencrypt-{env}", new Pulumi.Kubernetes.Yaml.ConfigGroupArgs
+    {
+        Yaml = clusterIssuerYaml
+    },
+    new ComponentResourceOptions
+    {
+        Provider = k8sProvider,
+        DependsOn = { managedCluster, certManager, route53Creds }
+    });
+
+    // Ingress controller so we can make calls after setup
     var traefikIngress = new Release("traefik", new ReleaseArgs
     {
         Name = "traefik",
@@ -244,6 +317,25 @@ return await Pulumi.Deployment.RunAsync(() =>
             {
                 ["enabled"] = true,
                 ["isDefaultClass"] = true,
+            },
+
+            ["ports"] = new Dictionary<string, object>
+            {
+                ["web"] = new Dictionary<string, object>
+                {
+                    ["expose"] = new Dictionary<string,object>
+                    {
+                        ["default"] = true,
+                    }
+                },
+
+                ["websecure"] = new Dictionary<string, object>
+                {
+                    ["expose"] = new Dictionary<string, object>
+                    {
+                        ["default"] = true,
+                    },
+                }
             }
         }
     },

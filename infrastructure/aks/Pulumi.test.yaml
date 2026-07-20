@@ -10,3 +10,8 @@ config:
     secure: AAABAAZDUjIk8A6tjCrIxipdViQUY2SZ6nLjucAoW0d7If3buVpqUBrvzUgTwQ==
   aks:LinuxProfileAdminUsername:
     secure: AAABAI29I9E9DOa8rho0l55glvPDjHqwZQW4JzYNH0JXbTWs6j71GhA=
+  aks:awsAccessKeyId:
+    secure: AAABAH7la+G78WQcg/6VZSUeTVpkDOi3og5qVe96iuUfnhtVBROQmnMVB8M4H9uTIOfTqg==
+  aks:awsSecretAccessKey:
+    secure: AAABAOp1TcN5AN115CVYB6z6LilgLGBIhi7zgjs9Tdm1seaYShmavVDY6WhblqpqhoYmUcVC+aLaMZQoPeOzMsijOmJawBLn
+  aks:awsRegion: us-east-1

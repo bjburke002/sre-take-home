@@ -25,21 +25,7 @@ return await Pulumi.Deployment.RunAsync(() =>
         ResourceGroupName = resourceGroup.Name,
         Location = "eastus2",
         NetworkSecurityGroupName = $"aks-subnet-{env}-nsg",
-        SecurityRules = new[]
-        {
-            new AzureNative.Network.Inputs.SecurityRuleArgs
-            {
-                Direction = "Inbound",
-                Protocol = "tcp",
-                Access = "Allow",
-                DestinationAddressPrefix = "VirtualNetwork",
-                DestinationPortRange = "443",
-                SourceAddressPrefix = "Internet",
-                SourcePortRange = "*",
-                Priority = 100,
-                Name = "HTTPSInbound"
-            }
-        }
+
     });
 
     var vNet = new AzureNative.Network.VirtualNetwork("vNet", new()

@@ -1,0 +1,23 @@
+namespace: dev
+
+replicaCount: 1
+
+ingress:
+  host: dev-api.burketechnologies.net
+
+  tls: 
+    enabled: true
+    clusterIssuer: letsencrypt-dev
+    secretName: candidate-api-dev-tls
+
+autoscaling:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+  limits:
+    cpu: 250m
+    memory: 256Mi
