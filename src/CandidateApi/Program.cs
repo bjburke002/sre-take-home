@@ -2,6 +2,7 @@ using CandidateApi.Configuration;
 using CandidateApi.Contracts;
 using CandidateApi.Services;
 using Microsoft.Extensions.Options;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +15,9 @@ builder.Services
 builder.Services.AddSingleton<ReadinessEvaluator>();
 
 var app = builder.Build();
+
+// Collect HTTP metrics
+app.UseHttpMetrics();
 
 app.MapGet("/", (IOptions<CandidateApiOptions> options, IWebHostEnvironment environment) =>
 {
@@ -52,5 +56,8 @@ app.MapGet("/api/work-items", (IOptions<CandidateApiOptions> options) =>
 
     return Results.Ok(items);
 });
+
+// Scrape endpoint with Prometheus
+app.MapMetrics();
 
 app.Run();

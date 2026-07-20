@@ -10,12 +10,12 @@ spec:
 
   selector:
     matchLabels:
-      app: {{ include "app.name" . }}
+      {{- include "app.selectorLabels" . | nindent 6 }}
 
   template:
     metadata:
       labels:
-        app: {{ include "app.name" . }}
+        {{- include "app.selectorLabels" . | nindent 8 }}
 
     spec:
       containers:
@@ -26,7 +26,6 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
 
           ports:
-            - containerPort: {{ .Values.service.targetPort }}
 
             - name: http
               containerPort: 8080

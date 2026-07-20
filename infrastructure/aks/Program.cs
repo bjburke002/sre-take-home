@@ -10,6 +10,7 @@ using Pulumi.AzureNative.Resources;
 
 using KubeCustomResource = Pulumi.Kubernetes.ApiExtensions.CustomResource;
 using KubeCustomResourceArgs = Pulumi.Kubernetes.ApiExtensions.CustomResourceArgs;
+using Pulumi.Kubernetes.Yaml;
 using Pulumi.Kubernetes.Core.V1;
 using Pulumi.Kubernetes.Helm.V3;
 using Pulumi.Kubernetes.Types.Inputs.Core.V1;
@@ -17,6 +18,8 @@ using Pulumi.Kubernetes.Types.Inputs.Helm.V3;
 using Pulumi.Kubernetes.Types.Inputs.Meta.V1;
 
 using AzureNative = Pulumi.AzureNative;
+using System.Xml;
+using System.Data.Common;
 
 
 return await Pulumi.Deployment.RunAsync(() =>
@@ -215,7 +218,7 @@ return await Pulumi.Deployment.RunAsync(() =>
         In this section, we are going to install necessary Helm charts to get the cluster up and running.
         Cert-Manager for TLS, and Traefik for Ingress.
     */
-    
+
     var certManager = new Release("cert-manager", new ReleaseArgs
     {
         Chart = "cert-manager",
@@ -401,5 +404,39 @@ return await Pulumi.Deployment.RunAsync(() =>
             }
         }
     }
-});
+    });
+
+    var serviceMonitorYaml = Output.Format($@"
+    apiVersion: monitoring.coreos.com/v1
+    kind: ServiceMonitor
+    metadata:
+        name: candidate-api
+        namespace: monitoring
+        labels:
+            release: monitoring
+    spec:
+        namespaceSelector:
+            matchNames:
+                - {env}
+        selector:
+            matchLabels:
+                app.kubernetes.io/component: api
+        endpoints:
+        - port: http
+          path: /metrics
+          interval: 15s  
+    ");
+
+    var candidateApiServiceMonitor = new Pulumi.Kubernetes.Yaml.ConfigGroup(
+        $"candidate-api-servicemonitor-{env}",
+        new Pulumi.Kubernetes.Yaml.ConfigGroupArgs
+        {
+            Yaml = serviceMonitorYaml
+        },
+        new ComponentResourceOptions
+        {
+            Provider = k8sProvider,
+            DependsOn = {monitoringStack}
+        }
+    );
 });
