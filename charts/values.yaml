@@ -3,7 +3,7 @@ replicaCount: 2
 image:
   repository: candidateapiacr.azurecr.io/candidate-api
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 service:
   type: ClusterIP
