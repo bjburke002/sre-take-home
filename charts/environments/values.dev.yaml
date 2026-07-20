@@ -11,7 +11,7 @@ ingress:
     secretName: candidate-api-dev-tls
 
 autoscaling:
-  enabled: false
+  enabled: true
 
 resources:
   requests:

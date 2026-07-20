@@ -4,10 +4,10 @@ image:
 replicaCount: 1
 
 ingress:
-  host: api-test.burketechnologies.net
+  host: test-api.burketechnologies.net
 
 autoscaling:
-  enabled: false
+  enabled: true
 
 resources:
   requests:
