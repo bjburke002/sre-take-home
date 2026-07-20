@@ -1,0 +1,7 @@
+name: acr
+description: Azure Container Registry
+runtime: dotnet
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: azure-csharp

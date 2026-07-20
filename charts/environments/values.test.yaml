@@ -1,0 +1,23 @@
+namespace: test
+
+replicaCount: 1
+
+ingress:
+  host: test-api.burketechnologies.net
+
+  tls: 
+    enabled: true
+    clusterIssuer: letsencrypt-test
+    secretName: candidate-api-test-tls
+
+autoscaling:
+  enabled: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+  limits:
+    cpu: 250m
+    memory: 256Mi

@@ -1,0 +1,40 @@
+replicaCount: 2
+
+image:
+  repository: candidateapiacr.azurecr.io/candidate-api
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+
+  className: traefik
+
+  host: api.burketechnologies.net
+
+  entryPoints:
+    - websecure
+
+  tls:
+    enabled: true
+    secretName: candidate-api-tls
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  cpuUtilization: 80

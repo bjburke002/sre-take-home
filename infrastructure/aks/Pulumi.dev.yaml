@@ -1,0 +1,17 @@
+config:
+  azure-native:location: EastUS2
+  aks:AdminUsername: admin
+  aks:env: dev
+  aks:location: eastus2
+  aks:agentpool: devpool1
+  aks:DnsPrefix: coteriedev
+  aks:WindowsProfileAdminUsername:
+    secure: AAABAFTnD78TdF/l58Y7flLXBb1xeNTzJceT1CyzkcN7wMbGhVcodF8=
+  aks:WindowsProfileAdminPassword:
+    secure: AAABAJLJNZwD98XTzg1qfj2M/vQ9ufkcRJOjh8cfCqTKXKYb5GB/n2bs36safg==
+  aks:userpool: services
+  aks:awsAccessKeyId:
+    secure: AAABAJ/BzFfZIZnXH5BvJ7v67b8CM2htlRR8g1/RWZx0+Ibnp0vgfxDhsrj5CBUkiL/HWw==
+  aks:awsSecretAccessKey:
+    secure: AAABAPt+YBtzzIWOp9Fc22UdmdQZquRpxFDMMWoHpH0/xETomX5k7vjEALqtfDhqIP/Nj1szyVKM1FiZSLYdFjOSInInfNuj
+  aks:awsRegion: us-east-1
