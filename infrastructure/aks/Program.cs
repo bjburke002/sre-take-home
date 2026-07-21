@@ -197,6 +197,11 @@ return await Pulumi.Deployment.RunAsync(() =>
             KubeConfig = credentials.Apply(c =>
                 Encoding.UTF8.GetString(
                     Convert.FromBase64String(c.Kubeconfigs[0].Value)))
+        },
+        
+        new CustomResourceOptions
+        {
+            DependsOn = {managedCluster}
         });
 
     // Create namespaces in AKS cluster
@@ -240,6 +245,7 @@ return await Pulumi.Deployment.RunAsync(() =>
     new CustomResourceOptions
     {
         Provider = k8sProvider,
+        DependsOn = {managedCluster}
     });
 
     // Secret to hold AWS credentials for external-dns to use to update Route53 records
@@ -261,6 +267,7 @@ return await Pulumi.Deployment.RunAsync(() =>
     },
     new CustomResourceOptions
     {
+        Provider = k8sProvider,
         DependsOn = { certManager },
     });
 
@@ -345,6 +352,7 @@ return await Pulumi.Deployment.RunAsync(() =>
     new CustomResourceOptions
     {
         Provider = k8sProvider,
+        DependsOn = {managedCluster}
     });
 
     // Installing kube-prometheus-stack 
