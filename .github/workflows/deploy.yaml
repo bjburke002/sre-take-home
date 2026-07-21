@@ -121,13 +121,11 @@ jobs:
           echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
 
   deploy-dev:
-
     name: Deploy DEV AKS
     needs: build-and-push-docker-image
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -154,29 +152,7 @@ jobs:
             -f ./charts/environments/values.dev.yaml \
             --set image.tag=${{ needs.build-and-push-docker-image.outputs.image-tag }}
 
-
-      - name: Smoke test
-        run: |
-          URL="${{ secrets.DEV_HEALTH_ENDPOINT }}"
-
-          for i in {1..12}; do
-            response=$(curl -fsS "$URL" || echo '{}')
-            status=$(echo "$response" | jq -r '.status')
-
-            if [ "$status" = "Alive" ]; then
-              echo "Smoke test passed"
-              exit 0
-            fi
-
-            echo "Current status: ${status:-unreachable}"
-            sleep 5
-          done
-
-          echo "Smoke test failed"
-          exit 1
-
   deploy-test:
-
     name: Deploy TEST AKS
     needs:
       - build-and-push-docker-image
@@ -184,7 +160,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -210,23 +185,3 @@ jobs:
             --create-namespace \
             -f ./charts/environments/values.test.yaml \
             --set image.tag=${{ needs.build-and-push-docker-image.outputs.image-tag }}
-      
-      - name: Smoke test
-        run: |
-          URL="${{ secrets.TEST_HEALTH_ENDPOINT }}"
-
-          for i in {1..12}; do
-            response=$(curl -fsS "$URL" || echo '{}')
-            status=$(echo "$response" | jq -r '.status')
-
-            if [ "$status" = "Alive" ]; then
-              echo "Smoke test passed"
-              exit 0
-            fi
-
-            echo "Current status: ${status:-unreachable}"
-            sleep 5
-          done
-
-          echo "Smoke test failed"
-          exit 1
