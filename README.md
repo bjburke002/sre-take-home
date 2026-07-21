@@ -1,5 +1,21 @@
 # SRE Take-Home Assessment
 
+## Roadmap
+
+Project folders:
+- `/dashboard` - Grafana dashboard definition and documentation.
+- `/docs` - General documentation around the project and pipelines
+- `/infrastructure` - Infrastructure as Code files (C# Azure-Native Pulumi) and documentation.
+- `/charts` - Helm templates, Helm chart and environment-specific values files used to package and deploy our API. 
+- `/.github/workflows/` - GitHub Actions workflows for `build-and-test` and `deploy` pipelines.
+- `Dockerfile` defines our container image used as part of the deployment process.
+
+Deliverables for this project touch several areas in the repo. Documentation can be found here:
+- `/docs/PROJECT.md`  - Project overview and high level details around decisions/tradeoffs.
+- `/docs/PIPELINES.md` - Details about the build process, and build and deploy pipelines. Overview of Helm templating decisions and ODIC workflow.
+- `/infrastructure/INFRASTRUCTURE.md` - Details around IaC project structure, resources and configs, deliverables and tradeoffs/decisions/thought process.
+- `/dashboard/SLODOCS.md` - SLO definition, and details about SLI, error budget, burn rate alerting and custom instrumentation. 
+
 ## Instructions
 
 Fork this repository and follow the guidelines below. When you are finished, or when you have run out of time, share a link to your forked repository back with the hiring team for review.
