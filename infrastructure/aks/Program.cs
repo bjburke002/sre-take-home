@@ -1,26 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Grpc.Core;
 using Pulumi;
 
 using Pulumi.AzureNative.Authorization;
+using Pulumi.AzureNative.AzureArcData.Inputs;
 using Pulumi.AzureNative.ContainerService;
 using Pulumi.AzureNative.Resources;
 
-
-using KubeCustomResource = Pulumi.Kubernetes.ApiExtensions.CustomResource;
-using KubeCustomResourceArgs = Pulumi.Kubernetes.ApiExtensions.CustomResourceArgs;
-using Pulumi.Kubernetes.Yaml;
 using Pulumi.Kubernetes.Core.V1;
 using Pulumi.Kubernetes.Helm.V3;
+using Pulumi.Kubernetes.Networking.V1;
+using Pulumi.Kubernetes.Types.Inputs.Networking.V1;
 using Pulumi.Kubernetes.Types.Inputs.Core.V1;
 using Pulumi.Kubernetes.Types.Inputs.Helm.V3;
 using Pulumi.Kubernetes.Types.Inputs.Meta.V1;
 
 using AzureNative = Pulumi.AzureNative;
-using System.Xml;
-using System.Data.Common;
-
+using Microsoft.AspNetCore.Mvc.Formatters;
 
 return await Pulumi.Deployment.RunAsync(() =>
 {
@@ -125,9 +123,10 @@ return await Pulumi.Deployment.RunAsync(() =>
         Location = location,
         NetworkProfile = new AzureNative.ContainerService.Inputs.ContainerServiceNetworkProfileArgs
         {
+            NetworkDataplane = AzureNative.ContainerService.NetworkDataplane.Cilium,
             NetworkPlugin = AzureNative.ContainerService.NetworkPlugin.Azure,
             NetworkPluginMode = AzureNative.ContainerService.NetworkPluginMode.Overlay,
-            NetworkPolicy = AzureNative.ContainerService.NetworkPolicy.Azure,
+            NetworkPolicy = AzureNative.ContainerService.NetworkPolicy.Cilium,
 
             // Pod network
             PodCidr = "192.168.0.0/16",
@@ -167,6 +166,7 @@ return await Pulumi.Deployment.RunAsync(() =>
 
     });
 
+
     // Grab Kubelet managed identity principal ID to assign acrPull it
     var kubeletPrincipalId = managedCluster.IdentityProfile.Apply(profile => profile?["kubeletidentity"].ObjectId);
 
@@ -198,10 +198,10 @@ return await Pulumi.Deployment.RunAsync(() =>
                 Encoding.UTF8.GetString(
                     Convert.FromBase64String(c.Kubeconfigs[0].Value)))
         },
-        
+
         new CustomResourceOptions
         {
-            DependsOn = {managedCluster}
+            DependsOn = { managedCluster }
         });
 
     // Create namespaces in AKS cluster
@@ -218,6 +218,217 @@ return await Pulumi.Deployment.RunAsync(() =>
         {
             Provider = k8sProvider,
             DependsOn = { managedCluster }
+        });
+
+    // NetworkPolicies
+    var defaultDeny = new Pulumi.Kubernetes.Networking.V1.NetworkPolicy("default-deny", new NetworkPolicyArgs
+    {
+        Metadata = new ObjectMetaArgs
+        {
+            Name = "default-deny",
+            Namespace = $"{env}"
+        },
+
+        Spec = new NetworkPolicySpecArgs
+        {
+            PodSelector = new LabelSelectorArgs(),
+
+            PolicyTypes =
+            {
+                "Ingress",
+                "Egress"
+            }
+        }
+    },
+    new CustomResourceOptions
+    {
+        Provider = k8sProvider,
+        DependsOn = { Namespace }
+    });
+
+    // Allow coredns traffic
+    var allowDns = new Pulumi.Kubernetes.Networking.V1.NetworkPolicy(
+        "allow-dns",
+        new NetworkPolicyArgs
+        {
+            Metadata = new ObjectMetaArgs
+            {
+                Name = "allow-dns",
+                Namespace = $"{env}"
+            },
+
+            Spec = new NetworkPolicySpecArgs
+            {
+                // Applies to every pod in this namespace
+                PodSelector = new LabelSelectorArgs(),
+
+                PolicyTypes =
+                {
+                "Egress"
+                },
+
+                Egress =
+                {
+                new NetworkPolicyEgressRuleArgs
+                {
+                    To =
+                    {
+                        new NetworkPolicyPeerArgs
+                        {
+                            NamespaceSelector = new LabelSelectorArgs
+                            {
+                                MatchLabels = new Dictionary<string, string>
+                                {
+                                    {
+                                        "kubernetes.io/metadata.name",
+                                        "kube-system"
+                                    }
+                                }
+                            },
+
+                            PodSelector = new LabelSelectorArgs
+                            {
+                                MatchLabels = new Dictionary<string, string>
+                                {
+                                    {
+                                        "k8s-app",
+                                        "kube-dns"
+                                    }
+                                }
+                            }
+                        }
+                    },
+
+                    Ports =
+                    {
+                        new NetworkPolicyPortArgs
+                        {
+                            Protocol = "UDP",
+                            Port = 53
+                        },
+                        new NetworkPolicyPortArgs
+                        {
+                            Protocol = "TCP",
+                            Port = 53
+                        }
+                    }
+                }
+                }
+            }
+        },
+        new CustomResourceOptions
+        {
+            Provider = k8sProvider,
+            DependsOn = { Namespace }
+        });
+
+    // Allow Traefik ingress to hit application pods
+    var allowTraefik = new Pulumi.Kubernetes.Networking.V1.NetworkPolicy(
+        "allow-traefik-ingress",
+        new NetworkPolicyArgs
+        {
+            Metadata = new ObjectMetaArgs
+            {
+                Name = "allow-traefik-ingress",
+                Namespace = $"{env}"
+            },
+
+            Spec = new NetworkPolicySpecArgs
+            {
+                PodSelector = new LabelSelectorArgs(),
+
+                PolicyTypes =
+                {
+                "Ingress"
+                },
+
+                Ingress =
+                {
+                new NetworkPolicyIngressRuleArgs
+                {
+                    From =
+                    {
+                        new NetworkPolicyPeerArgs
+                        {
+                            NamespaceSelector = new LabelSelectorArgs
+                            {
+                                MatchLabels = new Dictionary<string,string>
+                                {
+                                    {
+                                      "kubernetes.io/metadata.name",
+                                      "traefik"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                }
+            }
+        },
+        new CustomResourceOptions
+        {
+            Provider = k8sProvider,
+            DependsOn = { Namespace }
+        });
+
+    // Allow Prometheus scraping
+    var allowPrometheus = new Pulumi.Kubernetes.Networking.V1.NetworkPolicy(
+        "allow-prometheus",
+        new NetworkPolicyArgs
+        {
+            Metadata = new ObjectMetaArgs
+            {
+                Name = "allow-prometheus",
+                Namespace = $"{env}"
+            },
+
+            Spec = new NetworkPolicySpecArgs
+            {
+                PodSelector = new LabelSelectorArgs(),
+
+                PolicyTypes =
+                {
+                        "Ingress"
+                },
+
+                Ingress =
+                {
+                        new NetworkPolicyIngressRuleArgs
+                        {
+                            From =
+                            {
+                                new NetworkPolicyPeerArgs
+                                {
+                                    NamespaceSelector = new LabelSelectorArgs
+                                    {
+                                        MatchLabels = new Dictionary<string, string>
+                                        {
+                                            {
+                                                "kubernetes.io/metadata.name",
+                                                "monitoring"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+
+                            Ports =
+                            {
+                                new NetworkPolicyPortArgs
+                                {
+                                    Port = 8080,
+                                    Protocol = "TCP"
+                                }
+                            }
+                        }
+                }
+            }
+        },
+        new CustomResourceOptions
+        {
+            Provider = k8sProvider,
+            DependsOn = { Namespace }
         });
     /*
         In this section, we are going to install necessary Helm charts to get the cluster up and running.
@@ -245,7 +456,7 @@ return await Pulumi.Deployment.RunAsync(() =>
     new CustomResourceOptions
     {
         Provider = k8sProvider,
-        DependsOn = {managedCluster}
+        DependsOn = { managedCluster }
     });
 
     // Secret to hold AWS credentials for external-dns to use to update Route53 records
@@ -303,6 +514,112 @@ return await Pulumi.Deployment.RunAsync(() =>
         DependsOn = { managedCluster, certManager, route53Creds }
     });
 
+    var allowCertManagerEgress = new Pulumi.Kubernetes.Networking.V1.NetworkPolicy(
+    "allow-cert-manager-egress",
+    new NetworkPolicyArgs
+    {
+        Metadata = new ObjectMetaArgs
+        {
+            Name = "allow-cert-manager-egress",
+            Namespace = "cert-manager"
+        },
+
+        Spec = new NetworkPolicySpecArgs
+        {
+            PodSelector = new LabelSelectorArgs(),
+
+            PolicyTypes =
+            {
+                "Egress"
+            },
+
+            Egress =
+            {
+                // Allow DNS
+                new NetworkPolicyEgressRuleArgs
+                {
+                    To =
+                    {
+                        new NetworkPolicyPeerArgs
+                        {
+                            NamespaceSelector = new LabelSelectorArgs
+                            {
+                                MatchLabels = new Dictionary<string,string>
+                                {
+                                    {
+                                        "kubernetes.io/metadata.name",
+                                        "kube-system"
+                                    }
+                                }
+                            },
+
+                            PodSelector = new LabelSelectorArgs
+                            {
+                                MatchLabels = new Dictionary<string,string>
+                                {
+                                    {
+                                        "k8s-app",
+                                        "kube-dns"
+                                    }
+                                }
+                            }
+                        }
+                    },
+
+                    Ports =
+                    {
+                        new NetworkPolicyPortArgs
+                        {
+                            Protocol = "UDP",
+                            Port = 53
+                        },
+                        new NetworkPolicyPortArgs
+                        {
+                            Protocol = "TCP",
+                            Port = 53
+                        }
+                    }
+                },
+
+                // Allow external DNS for DNS-01 challenges
+                new NetworkPolicyEgressRuleArgs
+                {
+                    Ports =
+                    {
+                        new NetworkPolicyPortArgs
+                        {
+                            Protocol = "UDP",
+                            Port = 53
+                        },
+                        new NetworkPolicyPortArgs
+                        {
+                            Protocol = "TCP",
+                            Port = 53
+                        }
+                    }
+                },
+
+                // Allow HTTPS to ACME + AWS APIs
+                new NetworkPolicyEgressRuleArgs
+                {
+                    Ports =
+                    {
+                        new NetworkPolicyPortArgs
+                        {
+                            Protocol = "TCP",
+                            Port = 443
+                        }
+                    }
+                }
+            }
+        }
+    },
+    new CustomResourceOptions
+    {
+        Provider = k8sProvider,
+        DependsOn = { certManager }
+    });
+
     // Ingress controller so we can make calls after setup
     var traefikIngress = new Release("traefik", new ReleaseArgs
     {
@@ -352,7 +669,7 @@ return await Pulumi.Deployment.RunAsync(() =>
     new CustomResourceOptions
     {
         Provider = k8sProvider,
-        DependsOn = {managedCluster}
+        DependsOn = { managedCluster }
     });
 
     // Installing kube-prometheus-stack 
@@ -416,7 +733,7 @@ return await Pulumi.Deployment.RunAsync(() =>
     new CustomResourceOptions
     {
         Provider = k8sProvider,
-        DependsOn = {managedCluster}
+        DependsOn = { managedCluster }
     });
 
     var serviceMonitorYaml = Output.Format($@"
@@ -449,7 +766,7 @@ return await Pulumi.Deployment.RunAsync(() =>
         new ComponentResourceOptions
         {
             Provider = k8sProvider,
-            DependsOn = {monitoringStack}
+            DependsOn = { monitoringStack }
         }
     );
 });
