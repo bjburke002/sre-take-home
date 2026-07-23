@@ -4,19 +4,19 @@
   "metadata": {
     "name": "candidate-api-slo-new",
     "namespace": "default",
-    "uid": "ac994b31-5aef-4af0-8402-13b9ca4d7f25",
-    "resourceVersion": "1784580538455006",
-    "generation": 2,
-    "creationTimestamp": "2026-07-20T20:46:41Z",
+    "uid": "7d48e099-caaf-417f-adb7-a11764dc4ee9",
+    "resourceVersion": "1784848191834984",
+    "generation": 8,
+    "creationTimestamp": "2026-07-21T03:04:15Z",
     "labels": {
-      "grafana.app/deprecatedInternalID": "3147597372338176"
+      "grafana.app/deprecatedInternalID": "3242615779545088"
     },
     "annotations": {
-      "grafana.app/createdBy": "user:ffsnn1y4jilfkb",
+      "grafana.app/createdBy": "user:efsqlvs0z4zk0d",
       "grafana.app/folder": "",
       "grafana.app/saved-from-ui": "Grafana v13.1.0 (b309c9bb3b)",
-      "grafana.app/updatedBy": "user:ffsnn1y4jilfkb",
-      "grafana.app/updatedTimestamp": "2026-07-20T20:48:58Z"
+      "grafana.app/updatedBy": "user:efsqlvs0z4zk0d",
+      "grafana.app/updatedTimestamp": "2026-07-23T23:09:51Z"
     }
   },
   "spec": {
@@ -66,8 +66,10 @@
                         "name": "${datasource}"
                       },
                       "spec": {
-                        "expr": "100 - (((sum(rate(candidate_api_errors_total[5m])) or vector(0)) / sum(rate(candidate_api_requests_total[5m]))) * 100)",
-                        "legendFormat": "Availability"
+                        "editorMode": "code",
+                        "expr": "avg_over_time(\r\n  (\r\n    min without(instance, pod)(\r\n      candidate_api_readiness_status\r\n    )\r\n  )[30d:]\r\n)* 100",
+                        "legendFormat": "Availability",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -115,6 +117,7 @@
               "fieldConfig": {
                 "defaults": {
                   "unit": "percent",
+                  "decimals": 6,
                   "min": 95,
                   "max": 100,
                   "thresholds": {
@@ -543,8 +546,10 @@
                         "name": "${datasource}"
                       },
                       "spec": {
-                        "expr": "100 - ((((sum(rate(candidate_api_errors_total[5m])) or vector(0)) / sum(rate(candidate_api_requests_total[5m]))) / 0.001) * 100)",
-                        "legendFormat": "Budget Remaining"
+                        "editorMode": "code",
+                        "expr": "100 -\r\n(\r\n  (\r\n    sum_over_time(\r\n      (\r\n        min without(instance, pod)(\r\n          candidate_api_readiness_status\r\n        ) == bool 0\r\n      )[30d:]\r\n    )\r\n    * 30\r\n    /\r\n    60\r\n  )\r\n  /\r\n  43.2\r\n  *\r\n  100\r\n)",
+                        "legendFormat": "Budget Remaining",
+                        "range": true
                       }
                     },
                     "refId": "A",
@@ -1247,7 +1252,7 @@
               "x": 0,
               "y": 17,
               "width": 24,
-              "height": 8,
+              "height": 6,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-12"
@@ -1258,7 +1263,7 @@
             "kind": "GridLayoutItem",
             "spec": {
               "x": 0,
-              "y": 25,
+              "y": 23,
               "width": 12,
               "height": 6,
               "element": {
@@ -1271,7 +1276,7 @@
             "kind": "GridLayoutItem",
             "spec": {
               "x": 12,
-              "y": 25,
+              "y": 23,
               "width": 12,
               "height": 6,
               "element": {
@@ -1321,8 +1326,8 @@
           "refresh": "onDashboardLoad",
           "regex": "",
           "current": {
-            "text": "",
-            "value": ""
+            "text": "Prometheus",
+            "value": "prometheus"
           },
           "options": [],
           "multi": false,

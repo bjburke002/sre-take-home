@@ -44,14 +44,14 @@ A 99.9% availability target means that the service may experience up to approxim
 
 ## Availability SLI
 
-The availability SLI measures the percentage of requests that successfully complete.
+The availability SLI measures the percentage of time that the service is available over a rolling 30-day window.
 
-A successful request is defined as any request that does not return a server-side failure response.
+Availability is determined by the Kubernetes readiness state of the application. A service is considered available when the readiness check reports a healthy state and unavailable when the readiness check fails.
 
 ### Calculation
 
 ```
-Availability = Successful Requests / Total Requests * 100
+Availability = Available Time / Total Measurement Window * 100
 ```
 
 Successful requests:
@@ -60,6 +60,7 @@ Successful requests:
 - HTTP 201
 - HTTP 400
 - Other non-5xx responses
+- Kubernetes readiness probes succeed
 
 Failed requests:
 
@@ -75,11 +76,13 @@ Failed requests:
 The availability percentage can be calculated using:
 
 ```promql
-(
-  sum(rate(http_server_request_duration_seconds_count{http_response_status_code!~"5.."}[5m]))
-/
-  sum(rate(http_server_request_duration_seconds_count[5m]))
-) * 100
+avg_over_time(
+  (
+    min without(instance, pod)(
+      candidate_api_readiness_status
+    )
+  )[30d:]
+)* 100
 ```
 
 This query calculates the percentage of successful HTTP requests over the previous five minutes.
