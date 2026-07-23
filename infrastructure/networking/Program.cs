@@ -25,6 +25,22 @@ return await Pulumi.Deployment.RunAsync(() =>
         ResourceGroupName = resourceGroup.Name,
         Location = "eastus2",
         NetworkSecurityGroupName = $"aks-subnet-{env}-nsg",
+        SecurityRules = new[]
+        {
+            new AzureNative.Network.Inputs.SecurityRuleArgs
+            {
+                Direction = "Inbound",
+                Protocol = "tcp",
+                Access = "Allow",
+                Name = "HTTPSInbound",
+                Description = "Allow HTTPS Inbound traffic",
+                DestinationPortRange = "443",
+                DestinationAddressPrefix = "*",
+                Priority = 100,
+                SourceAddressPrefix = "Internet",
+                SourcePortRange = "*"
+            }
+        }
 
     });
 
